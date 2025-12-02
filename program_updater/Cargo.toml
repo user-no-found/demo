@@ -1,0 +1,10 @@
+[package]
+name = "program_updater"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+#图标
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1.12"
