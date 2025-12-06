@@ -8,3 +8,13 @@ edition = "2024"
 #图标
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
+
+#主程序
+[[bin]]
+name = "program_updater"
+path = "src/main.rs"
+
+#更新助手程序
+[[bin]]
+name = "updater_helper"
+path = "src/bin/updater_helper.rs"

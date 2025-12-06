@@ -12,3 +12,7 @@ pub const FILE_MAPPINGS: &[(&str, &str)] = &[
 
 //启动文件路径（所有文件替换完成后启动此程序）
 pub const STARTUP_FILE: &str = "";
+
+//更新助手程序路径（用于自我更新时替换主程序）
+//示例：Windows下为"C:/path/to/updater_helper.exe"
+pub const HELPER_EXE: &str = "";
