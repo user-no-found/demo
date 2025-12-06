@@ -2,6 +2,7 @@
 
 mod config;
 mod updater;
+mod self_update;
 
 fn main() {
     println!("程序升级器启动...");
@@ -26,6 +27,34 @@ fn main() {
     if !std::path::Path::new(config::SOURCE_DIR).exists() {
         eprintln!("错误：源目录不存在: {}", config::SOURCE_DIR);
         std::process::exit(1);
+    }
+
+    //步骤0：检测是否需要自我更新
+    if let std::option::Option::Some(self_update_file) = self_update::check_self_update(config::SOURCE_DIR) {
+        println!("检测到程序自身更新文件: {}", self_update_file.display());
+        
+        //生成自我更新脚本
+        match self_update::generate_self_update_script(&self_update_file) {
+            Ok(script_path) => {
+                println!("已生成更新脚本: {}", script_path.display());
+                
+                //执行脚本
+                match self_update::execute_self_update_script(&script_path) {
+                    Ok(()) => {
+                        println!("更新脚本已启动，程序即将退出...");
+                        std::process::exit(0);
+                    }
+                    Err(e) => {
+                        eprintln!("错误：启动更新脚本失败: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("错误：生成更新脚本失败: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 
     //步骤1：获取源目录中的所有文件
