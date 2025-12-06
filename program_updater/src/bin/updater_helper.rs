@@ -21,6 +21,11 @@ fn main() {
     //检查源文件是否存在
     if !source_file.exists() {
         println!("源目录中未发现主程序更新文件: {}", source_file.display());
+        println!("直接启动主程序...");
+        if let Err(e) = launch_program(program_updater::config::MAIN_EXE_PATH) {
+            eprintln!("错误：启动主程序失败: {}", e);
+            std::process::exit(1);
+        }
         println!("助手退出");
         return;
     }
