@@ -65,6 +65,7 @@ pub fn generate_self_update_script(
     let script_path = std::env::temp_dir().join("updater_self_update.bat");
     
     //批处理脚本内容
+    //注意执行顺序：等待退出->复制->删除源文件->延迟->启动新程序->删除脚本
     let script_content = format!(
         r#"@echo off
 chcp 65001 >nul
@@ -84,9 +85,12 @@ if errorlevel 1 (
 )
 echo 正在清理源文件...
 del /F /Q "{source}"
+echo 等待文件系统同步...
+timeout /t 2 /nobreak >nul
 echo 正在启动新版本...
 start "" "{target}"
-exit
+echo 更新完成，清理脚本...
+(goto) 2>nul & del /F /Q "%~f0"
 "#,
         exe_name = exe_name,
         source = source_file.display(),
