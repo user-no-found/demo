@@ -2,7 +2,6 @@
 
 mod config;
 mod updater;
-mod self_update;
 
 fn main() {
     println!("程序升级器启动...");
@@ -27,29 +26,6 @@ fn main() {
     if !std::path::Path::new(config::SOURCE_DIR).exists() {
         eprintln!("错误：源目录不存在: {}", config::SOURCE_DIR);
         std::process::exit(1);
-    }
-
-    //步骤0：检测是否需要自我更新（优先于其他文件检查）
-    if let std::option::Option::Some(self_update_file) = self_update::check_self_update(config::SOURCE_DIR) {
-        println!("检测到程序自身更新文件: {}", self_update_file.display());
-        
-        //检查助手程序配置
-        if config::HELPER_EXE.is_empty() {
-            eprintln!("错误：检测到自身更新但未配置HELPER_EXE路径");
-            std::process::exit(1);
-        }
-        
-        //启动更新助手程序
-        match self_update::launch_update_helper(config::HELPER_EXE, &self_update_file) {
-            Ok(()) => {
-                println!("更新助手已启动，程序即将退出...");
-                std::process::exit(0);
-            }
-            Err(e) => {
-                eprintln!("错误：启动更新助手失败: {}", e);
-                std::process::exit(1);
-            }
-        }
     }
 
     //步骤1：获取源目录中的所有文件

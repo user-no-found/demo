@@ -9,6 +9,11 @@ edition = "2024"
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
 
+#共享库（供两个bin使用）
+[lib]
+name = "program_updater"
+path = "src/lib.rs"
+
 #主程序
 [[bin]]
 name = "program_updater"
