@@ -13,6 +13,7 @@
 | `udp/` | UDP 通信模块（单播+广播） | 无（纯标准库） |
 | `http/` | HTTP 通信模块（客户端+服务端） | [ureq](https://crates.io/crates/ureq) + [tiny_http](https://crates.io/crates/tiny_http) |
 | `websocket/` | WebSocket 双向通信 | [tungstenite](https://crates.io/crates/tungstenite) |
+| `json_config/` | JSON 配置文件读写 | [serde_json](https://crates.io/crates/serde_json) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -352,3 +353,56 @@ fn main() {
 - 客户端：`connect()`, `send_text()`, `send_binary()`, `recv()`
 - 服务端：`bind()`, `run()`, `run_threaded()`
 - 消息类型：`Text`, `Binary`, `Ping`, `Pong`, `Close`
+
+### json_config/ （JSON 配置模块）
+
+复制整个 `json_config/` 目录到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+```
+
+**读取配置示例：**
+```rust
+mod json_config;
+
+fn main() {
+    //读取为动态 JSON
+    let config = json_config::load("config.json").unwrap();
+    let name = config.get_str("name").unwrap_or("default");
+    let port = config.get_i64("server.port").unwrap_or(8080);
+
+    //读取为结构体
+    #[derive(serde::Deserialize)]
+    struct Config { name: String, port: u16 }
+    let config: Config = json_config::load_as("config.json").unwrap();
+}
+```
+
+**保存配置示例：**
+```rust
+mod json_config;
+
+#[derive(serde::Serialize)]
+struct Config { name: String, port: u16 }
+
+fn main() {
+    //保存结构体
+    let config = Config { name: "app".to_string(), port: 8080 };
+    json_config::save_pretty("config.json", &config).unwrap();
+
+    //动态构建并保存
+    let mut config = json_config::new();
+    config.set("name", "myapp").unwrap();
+    config.set("server.port", 9000).unwrap();
+    config.save_pretty("config.json").unwrap();
+}
+```
+
+**支持的方法：**
+- 读取：`load()`, `load_as::<T>()`, `from_str()`
+- 保存：`save()`, `save_pretty()`
+- 操作：`get()`, `get_str()`, `get_i64()`, `set()`, `remove()`
