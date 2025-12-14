@@ -20,6 +20,7 @@
 | `progress.rs` | 进度条、Spinner 动画 | [indicatif](https://crates.io/crates/indicatif) |
 | `serial.rs` | 串口通信 | [serial2](https://crates.io/crates/serial2) |
 | `env_config.rs` | 环境变量/.env文件 | [dotenvy](https://crates.io/crates/dotenvy) |
+| `datetime.rs` | 日期时间工具 | [chrono](https://crates.io/crates/chrono) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -919,3 +920,122 @@ SECRET_KEY=your-secret-key
 - 类型转换：`get_int()`, `get_bool()`, `get_float()` 及其 `_or` 变体
 - 批量：`get_all()`, `get_all_with_prefix()`
 - EnvReader：`prefix()`, `load_dotenv()` + 所有读取方法
+
+### datetime.rs （时间工具模块）
+
+复制 `datetime.rs` 文件到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+chrono = "0.4"
+```
+
+**获取当前时间：**
+```rust
+mod datetime;
+
+fn main() {
+    //当前本地时间
+    let now = datetime::now();
+    println!("当前时间: {}", datetime::format_default(&now));
+
+    //当前 UTC 时间
+    let utc = datetime::now_utc();
+
+    //当前时间戳
+    let ts = datetime::timestamp();
+    let ts_ms = datetime::timestamp_millis();
+}
+```
+
+**时间格式化：**
+```rust
+mod datetime;
+
+fn main() {
+    let now = datetime::now();
+
+    //默认格式：2024-01-15 13:45:30
+    println!("{}", datetime::format_default(&now));
+
+    //自定义格式
+    println!("{}", datetime::format(&now, "%Y年%m月%d日 %H:%M:%S"));
+
+    //使用预设格式
+    println!("{}", datetime::format(&now, datetime::formats::DATE_CN));
+    println!("{}", datetime::format(&now, datetime::formats::LOG));
+}
+```
+
+**时间解析：**
+```rust
+mod datetime;
+
+fn main() {
+    //解析默认格式
+    let dt = datetime::parse("2024-01-15 13:45:30").unwrap();
+
+    //解析自定义格式
+    let dt = datetime::parse_with_format("2024年01月15日", "%Y年%m月%d日").unwrap();
+
+    //解析日期
+    let dt = datetime::parse_date("2024-01-15").unwrap();
+
+    //解析 ISO 8601
+    let dt = datetime::parse_iso("2024-01-15T13:45:30+08:00").unwrap();
+}
+```
+
+**时间计算：**
+```rust
+mod datetime;
+
+fn main() {
+    let now = datetime::now();
+
+    //加减天数
+    let tomorrow = datetime::add_days(&now, 1);
+    let yesterday = datetime::add_days(&now, -1);
+
+    //加减小时/分钟/秒
+    let later = datetime::add_hours(&now, 2);
+    let later = datetime::add_minutes(&now, 30);
+
+    //计算时间差
+    let diff = datetime::diff(&now, &yesterday);
+    println!("相差: {}", diff.humanize());  //1天0小时0分钟
+}
+```
+
+**时间戳转换：**
+```rust
+mod datetime;
+
+fn main() {
+    //时间戳转时间
+    let dt = datetime::from_timestamp(1705300000).unwrap();
+
+    //时间转时间戳
+    let ts = datetime::to_timestamp(&datetime::now());
+}
+```
+
+**人性化显示：**
+```rust
+mod datetime;
+
+fn main() {
+    let dt = datetime::add_minutes(&datetime::now(), -5);
+    println!("{}", datetime::humanize(&dt));  //5分钟前
+}
+```
+
+**支持的方法：**
+- 获取时间：`now()`, `now_utc()`, `timestamp()`, `timestamp_millis()`
+- 格式化：`format()`, `format_default()`, `format_date()`, `format_time()`, `format_iso()`
+- 解析：`parse()`, `parse_with_format()`, `parse_date()`, `parse_iso()`
+- 计算：`add_days()`, `add_hours()`, `add_minutes()`, `add_seconds()`, `diff()`
+- 时间戳：`from_timestamp()`, `to_timestamp()`, `from_timestamp_millis()`
+- 比较：`is_today()`, `is_yesterday()`, `is_before()`, `is_after()`
+- 便捷：`today_start()`, `today_end()`, `humanize()`
