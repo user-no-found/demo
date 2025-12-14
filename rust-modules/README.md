@@ -4,11 +4,12 @@
 
 ## 模块列表
 
-| 文件 | 用途 | 依赖 |
+| 文件/目录 | 用途 | 依赖 |
 |------|------|------|
 | `ctrl_c.rs` | Ctrl+C 停止程序 | [ctrlc](https://crates.io/crates/ctrlc) |
 | `cmd_config.rs` | 命令行参数配置 | [clap](https://crates.io/crates/clap) (需 derive feature) |
 | `log.rs` | 日志配置（终端+文件） | [simplelog](https://crates.io/crates/simplelog) + [log](https://crates.io/crates/log) |
+| `tcp/` | TCP 通信模块（客户端+服务端） | 无（纯标准库） |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -58,3 +59,98 @@ fn main() {
 ```
 
 日志文件路径在 log.rs 顶部 `LOG_FILE_PATH` 常量中配置
+
+### tcp/ （TCP 通信模块）
+
+复制整个 `tcp/` 目录到项目 `src/` 目录。
+
+**目录结构：**
+```
+tcp/
+├── mod.rs       # 模块入口
+├── config.rs    # 配置项（端口、超时等）
+├── protocol.rs  # 消息协议定义
+├── client.rs    # 客户端
+└── server.rs    # 服务端
+```
+
+**服务端示例：**
+```rust
+mod tcp;
+
+fn main() {
+    //使用默认端口（config.rs 中配置）
+    let server = tcp::TcpServer::bind_default().unwrap();
+
+    //或指定端口
+    //let server = tcp::TcpServer::bind(9000).unwrap();
+
+    //单线程处理
+    server.run(|mut conn| {
+        println!("客户端: {}", conn.addr());
+
+        loop {
+            match conn.recv_message() {
+                Ok(msg) => {
+                    let content = tcp::parse_message_content(&msg);
+                    println!("收到: {:?}", content);
+                    conn.send_string("收到").unwrap();
+                }
+                Err(_) => break,
+            }
+        }
+        true //继续接受新连接
+    });
+
+    //多线程处理（高并发场景）
+    //server.run_threaded(|mut conn| {
+    //    loop {
+    //        match conn.recv_message() {
+    //            Ok(msg) => println!("{:?}", tcp::parse_message_content(&msg)),
+    //            Err(_) => break,
+    //        }
+    //    }
+    //});
+}
+```
+
+**客户端示例：**
+```rust
+mod tcp;
+
+fn main() {
+    //方式1：单次连接
+    if let Ok(mut client) = tcp::TcpClient::connect_once("127.0.0.1", 8080) {
+        client.send_string("你好！").unwrap();
+    }
+
+    //方式2：无限重连（永不退出，适合长连接场景）
+    tcp::TcpClient::connect_forever("127.0.0.1", 8080, |client| {
+        client.send_string("心跳").unwrap();
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        true //返回 false 可主动断开
+    });
+
+    //方式3：重试直到成功（适合启动时必须连接的场景）
+    let mut client = tcp::TcpClient::connect_until_success("127.0.0.1", 8080);
+    client.send_file(std::path::Path::new("test.txt")).unwrap();
+}
+```
+
+**配置修改（tcp/config.rs）：**
+```rust
+//修改默认端口
+pub const SERVER_DEFAULT_PORT: u16 = 9000;
+
+//修改重连间隔
+pub const RECONNECT_INITIAL_MS: u64 = 500;
+pub const RECONNECT_MAX_MS: u64 = 60000;
+```
+
+**支持的消息类型：**
+- `send_string()` - 字符串消息
+- `send_bytes()` - 原始字节数据
+- `send_file()` - 文件传输
+- `send_image()` - 图片传输
+- `send_video_frame()` - 视频帧
+- `send_file_chunked()` - 大文件分块传输
