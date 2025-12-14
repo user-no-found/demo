@@ -22,6 +22,7 @@
 | `env_config.rs` | 环境变量/.env文件 | [dotenvy](https://crates.io/crates/dotenvy) |
 | `datetime.rs` | 日期时间工具 | [chrono](https://crates.io/crates/chrono) |
 | `sysinfo.rs` | 系统信息（CPU/内存/磁盘/网络） | [sysinfo](https://crates.io/crates/sysinfo) |
+| `command.rs` | 命令执行、子进程管理 | 无（纯标准库） |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -1151,3 +1152,161 @@ fn main() {
 - 系统：`os_name()`, `os_version()`, `kernel_version()`, `hostname()`, `uptime()`, `uptime_human()`, `arch()`, `system_info()`
 - 刷新：`refresh()`, `refresh_cpu()`, `refresh_memory()`, `refresh_disks()`, `refresh_networks()`
 - 工具：`humanize_bytes()`, `humanize_duration()`
+
+### command.rs （命令执行模块）
+
+复制 `command.rs` 文件到项目 `src/` 目录。
+
+**无外部依赖（纯标准库实现）**
+
+**简单命令执行：**
+```rust
+mod command;
+
+fn main() {
+    //执行命令并获取输出
+    let output = command::run("ls", &["-la"]).unwrap();
+    println!("输出: {}", output.stdout);
+    println!("状态码: {}", output.status);
+
+    //快速获取输出（去除首尾空白）
+    let result = command::output("whoami", &[]).unwrap();
+    println!("用户: {}", result);
+
+    //仅检查成功与否
+    let ok = command::run_status("test", &["-f", "file.txt"]).unwrap();
+    println!("文件存在: {}", ok);
+}
+```
+
+**Shell 命令执行：**
+```rust
+mod command;
+
+fn main() {
+    //执行 Shell 命令
+    let output = command::shell("echo hello && ls -la").unwrap();
+    println!("{}", output.stdout);
+
+    //快速获取 Shell 输出
+    let result = command::shell_output("date +%Y-%m-%d").unwrap();
+    println!("日期: {}", result);
+
+    //静默执行（忽略输出）
+    command::shell_silent("mkdir -p /tmp/test").unwrap();
+}
+```
+
+**超时控制：**
+```rust
+mod command;
+use std::time::Duration;
+
+fn main() {
+    //带超时的命令执行
+    match command::run_with_timeout("sleep", &["10"], Duration::from_secs(2)) {
+        Ok(output) => println!("完成: {}", output.stdout),
+        Err(command::Error::Timeout) => println!("命令超时"),
+        Err(e) => println!("错误: {}", e),
+    }
+
+    //带超时的 Shell 命令
+    let result = command::shell_with_timeout("ping -c 5 google.com", Duration::from_secs(3));
+}
+```
+
+**后台执行：**
+```rust
+mod command;
+
+fn main() {
+    //后台启动进程
+    let mut handle = command::spawn("ping", &["-c", "10", "localhost"]).unwrap();
+    println!("进程 ID: {}", handle.pid());
+
+    //检查是否在运行
+    while handle.is_running() {
+        println!("进程仍在运行...");
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+
+    //等待结束并获取输出
+    let output = handle.wait().unwrap();
+    println!("输出: {}", output.stdout);
+
+    //或者强制终止
+    //handle.kill().unwrap();
+}
+```
+
+**带输入的执行：**
+```rust
+mod command;
+
+fn main() {
+    //向命令传递输入
+    let output = command::run_with_input("cat", &[], "Hello World").unwrap();
+    println!("{}", output.stdout);  //Hello World
+
+    //Shell 命令带输入
+    let output = command::shell_with_input("grep hello", "hello world\nfoo bar").unwrap();
+    println!("{}", output.stdout);  //hello world
+}
+```
+
+**命令构建器：**
+```rust
+mod command;
+use std::time::Duration;
+
+fn main() {
+    //完整的命令构建
+    let output = command::CommandBuilder::new("python")
+        .arg("-c")
+        .arg("print('hello')")
+        .cwd("/tmp")                           //设置工作目录
+        .env("MY_VAR", "value")                //设置环境变量
+        .timeout(Duration::from_secs(30))      //超时控制
+        .run()
+        .unwrap();
+
+    //Shell 命令构建器
+    let output = command::CommandBuilder::shell("echo $MY_VAR")
+        .env("MY_VAR", "hello")
+        .run()
+        .unwrap();
+
+    //后台启动
+    let handle = command::CommandBuilder::new("server")
+        .args(&["--port", "8080"])
+        .spawn()
+        .unwrap();
+}
+```
+
+**便捷函数：**
+```rust
+mod command;
+
+fn main() {
+    //检查命令是否存在
+    if command::exists("git") {
+        println!("Git 已安装");
+    }
+
+    //获取当前 Shell
+    if let Some(shell) = command::current_shell() {
+        println!("当前 Shell: {}", shell);
+    }
+}
+```
+
+**支持的方法：**
+- 简单执行：`run()`, `run_status()`, `run_silent()`, `output()`
+- Shell 执行：`shell()`, `shell_status()`, `shell_silent()`, `shell_output()`
+- 超时执行：`run_with_timeout()`, `shell_with_timeout()`
+- 后台执行：`spawn()`, `spawn_shell()`
+- 带输入：`run_with_input()`, `shell_with_input()`
+- 构建器：`CommandBuilder::new()`, `arg()`, `args()`, `cwd()`, `env()`, `timeout()`, `stdin()`, `run()`, `spawn()`
+- 工具：`exists()`, `current_shell()`
+- ProcessHandle：`is_running()`, `wait()`, `kill()`, `pid()`, `try_wait()`
