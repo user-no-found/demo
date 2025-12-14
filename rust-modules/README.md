@@ -16,6 +16,7 @@
 | `json_config.rs` | JSON 配置文件读写 | [serde_json](https://crates.io/crates/serde_json) |
 | `toml_config.rs` | TOML 配置文件读写 | [toml](https://crates.io/crates/toml) |
 | `crypto/` | 加密工具（Hash/AES/RSA） | [sha2](https://crates.io/crates/sha2) + [md-5](https://crates.io/crates/md-5) + [aes-gcm](https://crates.io/crates/aes-gcm) + [rsa](https://crates.io/crates/rsa) |
+| `file_watcher.rs` | 文件监控、热重载 | [notify](https://crates.io/crates/notify) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -559,3 +560,88 @@ fn main() {
 - 哈希：`md5()`, `sha256()`, `sha512()`, `md5_bytes()`, `sha256_bytes()`, `sha512_bytes()`
 - AES：`gcm_encrypt()`, `gcm_decrypt()`, `cbc_encrypt()`, `cbc_decrypt()`, `encrypt_simple()`, `decrypt_simple()`
 - RSA：`generate_keypair()`, `encrypt()`, `decrypt()`, `sign()`, `verify()`, `encrypt_hybrid()`, `decrypt_hybrid()`
+
+### file_watcher.rs （文件监控模块）
+
+复制 `file_watcher.rs` 文件到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+notify = "8"
+```
+
+**基础监控示例：**
+```rust
+mod file_watcher;
+
+fn main() {
+    //监控单个文件
+    file_watcher::watch_file("config.toml", |event| {
+        println!("文件变化: {:?}", event);
+    }).unwrap();
+
+    //监控目录
+    file_watcher::watch_dir("./src", |event| {
+        println!("{:?}: {:?}", event.kind, event.path);
+    }).unwrap();
+
+    //递归监控目录
+    file_watcher::watch_dir_recursive("./", |event| {
+        match event.kind {
+            file_watcher::EventKind::Create => println!("创建: {:?}", event.path),
+            file_watcher::EventKind::Modify => println!("修改: {:?}", event.path),
+            file_watcher::EventKind::Delete => println!("删除: {:?}", event.path),
+            _ => {}
+        }
+    }).unwrap();
+}
+```
+
+**Builder 模式示例：**
+```rust
+mod file_watcher;
+use std::time::Duration;
+
+fn main() {
+    //高级配置
+    file_watcher::FileWatcher::new()
+        .path("./src")                          //监控路径
+        .recursive(true)                        //递归监控
+        .debounce(Duration::from_millis(500))   //防抖动
+        .extensions(&["rs", "toml"])            //只监控指定扩展名
+        .on_event(|event| {
+            println!("{:?}", event);
+        })
+        .watch()
+        .unwrap();
+}
+```
+
+**异步监控示例：**
+```rust
+mod file_watcher;
+
+fn main() {
+    //启动异步监控
+    let handle = file_watcher::FileWatcher::new()
+        .path("./src")
+        .recursive(true)
+        .on_event(|event| {
+            println!("{:?}", event);
+        })
+        .watch_async()
+        .unwrap();
+
+    //程序继续执行其他任务...
+    std::thread::sleep(std::time::Duration::from_secs(10));
+
+    //停止监控
+    handle.stop();
+}
+```
+
+**支持的方法：**
+- 便捷函数：`watch_file()`, `watch_dir()`, `watch_dir_recursive()`
+- Builder：`path()`, `paths()`, `recursive()`, `debounce()`, `extensions()`, `pattern()`, `on_event()`, `watch()`, `watch_async()`
+- 事件类型：`EventKind::Create`, `Modify`, `Delete`, `Rename`, `Other`
