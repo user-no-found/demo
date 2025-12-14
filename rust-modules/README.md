@@ -18,6 +18,7 @@
 | `crypto/` | 加密工具（Hash/AES/RSA） | [sha2](https://crates.io/crates/sha2) + [md-5](https://crates.io/crates/md-5) + [aes-gcm](https://crates.io/crates/aes-gcm) + [rsa](https://crates.io/crates/rsa) |
 | `file_watcher.rs` | 文件监控、热重载 | [notify](https://crates.io/crates/notify) |
 | `progress.rs` | 进度条、Spinner 动画 | [indicatif](https://crates.io/crates/indicatif) |
+| `serial.rs` | 串口通信 | [serial2](https://crates.io/crates/serial2) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -752,3 +753,93 @@ fn main() {
 - MultiProgress：`new()`, `add()`, `add_spinner()`, `clear()`
 - 便捷函数：`bar()`, `bar_with_message()`, `spinner()`, `multi()`
 - 样式预设：`templates::SIMPLE`, `WITH_PERCENT`, `WITH_SPEED`, `WITH_ETA`, `FULL`, `DOWNLOAD`
+
+### serial.rs （串口通信模块）
+
+复制 `serial.rs` 文件到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+serial2 = "0.2"
+```
+
+**列举可用串口：**
+```rust
+mod serial;
+
+fn main() {
+    //列出所有可用串口
+    for port in serial::list_ports().unwrap() {
+        println!("串口: {}", port.name);
+    }
+}
+```
+
+**基础使用示例：**
+```rust
+mod serial;
+
+fn main() {
+    //打开串口
+    let mut port = serial::SerialPort::open("/dev/ttyUSB0", 115200).unwrap();
+    //Windows: serial::SerialPort::open("COM1", 115200)
+
+    //发送数据
+    port.write_str("AT\r\n").unwrap();
+    port.write_line("Hello").unwrap();  //自动添加 \r\n
+
+    //接收数据
+    let response = port.read_line().unwrap();
+    println!("收到: {}", response);
+
+    //读取所有可用数据
+    let data = port.read_available().unwrap();
+    println!("数据: {:?}", data);
+}
+```
+
+**Builder 模式配置：**
+```rust
+mod serial;
+use std::time::Duration;
+
+fn main() {
+    let mut port = serial::SerialPort::builder()
+        .port("/dev/ttyUSB0")
+        .baud_rate(9600)
+        .data_bits(serial::DataBits::Eight)
+        .stop_bits(serial::StopBits::One)
+        .parity(serial::Parity::None)
+        .timeout(Duration::from_secs(2))
+        .open()
+        .unwrap();
+
+    //使用串口...
+}
+```
+
+**控制信号示例：**
+```rust
+mod serial;
+
+fn main() {
+    let mut port = serial::open("/dev/ttyUSB0", 115200).unwrap();
+
+    //控制 DTR/RTS 信号
+    port.set_dtr(true).unwrap();
+    port.set_rts(true).unwrap();
+
+    //读取 CTS/DSR 信号
+    let cts = port.read_cts().unwrap();
+    let dsr = port.read_dsr().unwrap();
+    println!("CTS: {}, DSR: {}", cts, dsr);
+}
+```
+
+**支持的方法：**
+- 便捷函数：`list_ports()`, `open()`
+- SerialPort：`write()`, `write_str()`, `write_line()`, `read()`, `read_line()`, `read_available()`
+- 控制信号：`set_dtr()`, `set_rts()`, `read_cts()`, `read_dsr()`
+- Builder：`port()`, `baud_rate()`, `data_bits()`, `stop_bits()`, `parity()`, `timeout()`
+- 常用波特率：`baud_rates::B9600`, `B115200`, `B921600` 等
