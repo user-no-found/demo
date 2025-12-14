@@ -17,6 +17,7 @@
 | `toml_config.rs` | TOML 配置文件读写 | [toml](https://crates.io/crates/toml) |
 | `crypto/` | 加密工具（Hash/AES/RSA） | [sha2](https://crates.io/crates/sha2) + [md-5](https://crates.io/crates/md-5) + [aes-gcm](https://crates.io/crates/aes-gcm) + [rsa](https://crates.io/crates/rsa) |
 | `file_watcher.rs` | 文件监控、热重载 | [notify](https://crates.io/crates/notify) |
+| `progress.rs` | 进度条、Spinner 动画 | [indicatif](https://crates.io/crates/indicatif) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -645,3 +646,109 @@ fn main() {
 - 便捷函数：`watch_file()`, `watch_dir()`, `watch_dir_recursive()`
 - Builder：`path()`, `paths()`, `recursive()`, `debounce()`, `extensions()`, `pattern()`, `on_event()`, `watch()`, `watch_async()`
 - 事件类型：`EventKind::Create`, `Modify`, `Delete`, `Rename`, `Other`
+
+### progress.rs （进度显示模块）
+
+复制 `progress.rs` 文件到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+indicatif = "0.17"
+```
+
+**进度条示例：**
+```rust
+mod progress;
+
+fn main() {
+    //简单进度条
+    let pb = progress::ProgressBar::new(100);
+    for i in 0..100 {
+        pb.inc(1);
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    pb.finish_with_message("完成！");
+
+    //便捷写法
+    let pb = progress::bar(50);
+    pb.set_message("处理中...");
+    for _ in 0..50 {
+        pb.inc(1);
+    }
+    pb.finish();
+}
+```
+
+**Spinner 示例：**
+```rust
+mod progress;
+
+fn main() {
+    //基础 Spinner
+    let spinner = progress::Spinner::new("加载中...");
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    spinner.finish_with_success("加载完成！");
+
+    //失败状态
+    let spinner = progress::spinner("处理中...");
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    spinner.finish_with_error("处理失败");
+
+    //自定义样式
+    let spinner = progress::Spinner::new("请稍候");
+    spinner.set_style(progress::SpinnerStyle::Arrow);
+}
+```
+
+**多进度条示例：**
+```rust
+mod progress;
+
+fn main() {
+    let multi = progress::MultiProgress::new();
+
+    //添加多个进度条
+    let pb1 = multi.add(100);
+    let pb2 = multi.add(50);
+    let spinner = multi.add_spinner("后台任务...");
+
+    //在不同线程更新
+    std::thread::spawn(move || {
+        for _ in 0..100 {
+            pb1.inc(1);
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        pb1.finish();
+    });
+
+    for _ in 0..50 {
+        pb2.inc(1);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    pb2.finish();
+    spinner.finish_with_success("完成");
+}
+```
+
+**自定义样式：**
+```rust
+mod progress;
+
+fn main() {
+    let pb = progress::ProgressBar::new(100);
+
+    //使用预设模板
+    pb.set_style(progress::templates::WITH_SPEED);
+
+    //或使用完整模板
+    pb.set_style(progress::templates::FULL);
+}
+```
+
+**支持的方法：**
+- ProgressBar：`new()`, `inc()`, `set()`, `set_message()`, `finish()`, `finish_with_message()`, `abandon()`
+- Spinner：`new()`, `set_message()`, `finish_with_success()`, `finish_with_error()`, `set_style()`
+- MultiProgress：`new()`, `add()`, `add_spinner()`, `clear()`
+- 便捷函数：`bar()`, `bar_with_message()`, `spinner()`, `multi()`
+- 样式预设：`templates::SIMPLE`, `WITH_PERCENT`, `WITH_SPEED`, `WITH_ETA`, `FULL`, `DOWNLOAD`
