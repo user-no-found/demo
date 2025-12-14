@@ -15,6 +15,7 @@
 | `websocket/` | WebSocket 双向通信 | [tungstenite](https://crates.io/crates/tungstenite) |
 | `json_config.rs` | JSON 配置文件读写 | [serde_json](https://crates.io/crates/serde_json) |
 | `toml_config.rs` | TOML 配置文件读写 | [toml](https://crates.io/crates/toml) |
+| `crypto/` | 加密工具（Hash/AES/RSA） | [sha2](https://crates.io/crates/sha2) + [md-5](https://crates.io/crates/md-5) + [aes-gcm](https://crates.io/crates/aes-gcm) + [rsa](https://crates.io/crates/rsa) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -462,3 +463,99 @@ fn main() {
 - 读取：`load()`, `load_as::<T>()`, `from_str()`
 - 保存：`save()`
 - 操作：`get()`, `get_str()`, `get_i64()`, `get_bool()`
+
+### crypto/ （加密工具模块）
+
+复制整个 `crypto/` 目录到项目 `src/` 目录。
+
+**目录结构：**
+```
+crypto/
+├── mod.rs       # 模块入口
+├── config.rs    # 配置项
+├── hash.rs      # 哈希算法（MD5/SHA256/SHA512）
+├── aes.rs       # AES 对称加密
+└── rsa.rs       # RSA 非对称加密
+```
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+sha2 = "0.10"
+md-5 = "0.10"
+aes-gcm = "0.10"
+aes = "0.8"
+cbc = "0.1"
+rsa = "0.9"
+rand = "0.8"
+hex = "0.4"
+```
+
+**哈希示例：**
+```rust
+mod crypto;
+
+fn main() {
+    //MD5 哈希（不推荐用于安全场景）
+    let md5 = crypto::hash::md5("hello");
+    println!("MD5: {}", md5);
+
+    //SHA256 哈希（推荐）
+    let sha256 = crypto::hash::sha256("hello");
+    println!("SHA256: {}", sha256);
+
+    //SHA512 哈希
+    let sha512 = crypto::hash::sha512("hello");
+    println!("SHA512: {}", sha512);
+}
+```
+
+**AES 加密示例：**
+```rust
+mod crypto;
+
+fn main() {
+    //AES-GCM 加密（推荐，带认证）
+    let key = crypto::aes::generate_key();
+    let nonce = crypto::aes::generate_nonce();
+
+    let plaintext = b"Hello, World!";
+    let encrypted = crypto::aes::gcm_encrypt(&key, &nonce, plaintext).unwrap();
+    let decrypted = crypto::aes::gcm_decrypt(&key, &nonce, &encrypted).unwrap();
+
+    //简化版（自动管理 nonce）
+    let data = crypto::aes::encrypt_simple(&key, plaintext).unwrap();
+    let original = crypto::aes::decrypt_simple(&key, &data).unwrap();
+}
+```
+
+**RSA 加密示例：**
+```rust
+mod crypto;
+
+fn main() {
+    //生成密钥对（2048位）
+    let (public_key, private_key) = crypto::rsa::generate_keypair(2048).unwrap();
+
+    //加密/解密（适合小数据）
+    let plaintext = b"Hello!";
+    let encrypted = crypto::rsa::encrypt(&public_key, plaintext).unwrap();
+    let decrypted = crypto::rsa::decrypt(&private_key, &encrypted).unwrap();
+
+    //签名/验签
+    let message = b"Important message";
+    let signature = crypto::rsa::sign(&private_key, message).unwrap();
+    let is_valid = crypto::rsa::verify(&public_key, message, &signature).unwrap();
+    println!("签名验证: {}", is_valid);
+
+    //混合加密（适合大数据）
+    let large_data = b"Very long data...";
+    let encrypted = crypto::rsa::encrypt_hybrid(&public_key, large_data).unwrap();
+    let decrypted = crypto::rsa::decrypt_hybrid(&private_key, &encrypted).unwrap();
+}
+```
+
+**支持的方法：**
+- 哈希：`md5()`, `sha256()`, `sha512()`, `md5_bytes()`, `sha256_bytes()`, `sha512_bytes()`
+- AES：`gcm_encrypt()`, `gcm_decrypt()`, `cbc_encrypt()`, `cbc_decrypt()`, `encrypt_simple()`, `decrypt_simple()`
+- RSA：`generate_keypair()`, `encrypt()`, `decrypt()`, `sign()`, `verify()`, `encrypt_hybrid()`, `decrypt_hybrid()`
