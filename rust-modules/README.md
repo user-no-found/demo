@@ -21,6 +21,7 @@
 | `serial.rs` | 串口通信 | [serial2](https://crates.io/crates/serial2) |
 | `env_config.rs` | 环境变量/.env文件 | [dotenvy](https://crates.io/crates/dotenvy) |
 | `datetime.rs` | 日期时间工具 | [chrono](https://crates.io/crates/chrono) |
+| `sysinfo.rs` | 系统信息（CPU/内存/磁盘/网络） | [sysinfo](https://crates.io/crates/sysinfo) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -1039,3 +1040,114 @@ fn main() {
 - 时间戳：`from_timestamp()`, `to_timestamp()`, `from_timestamp_millis()`
 - 比较：`is_today()`, `is_yesterday()`, `is_before()`, `is_after()`
 - 便捷：`today_start()`, `today_end()`, `humanize()`
+
+### sysinfo.rs （系统信息模块）
+
+复制 `sysinfo.rs` 文件到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+sysinfo = "0.37"
+```
+
+**获取系统概览：**
+```rust
+mod sysinfo;
+
+fn main() {
+    let info = sysinfo::SystemInfo::new();
+
+    //CPU 信息
+    println!("CPU 核心数: {}", info.cpu_count());
+    println!("CPU 使用率: {:.1}%", info.cpu_usage());
+    println!("CPU 品牌: {}", info.cpu_brand());
+
+    //内存信息
+    println!("内存使用率: {:.1}%", info.memory_usage());
+    println!("总内存: {}", sysinfo::humanize_bytes(info.memory_total()));
+
+    //系统信息
+    println!("主机名: {}", info.hostname());
+    println!("操作系统: {} {}", info.os_name(), info.os_version());
+    println!("运行时间: {}", info.uptime_human());
+}
+```
+
+**获取详细信息：**
+```rust
+mod sysinfo;
+
+fn main() {
+    let info = sysinfo::SystemInfo::new();
+
+    //CPU 详细信息
+    let cpu = info.cpu_info();
+    println!("CPU: {} ({} 核心, {} MHz)", cpu.brand, cpu.cores, cpu.frequency_mhz);
+
+    //内存详细信息
+    let mem = info.memory_info();
+    println!("内存: {}/{} ({:.1}%)", mem.used_human(), mem.total_human(), mem.usage);
+
+    //磁盘信息
+    for disk in info.disks() {
+        println!("磁盘 {}: {}/{} ({:.1}%)",
+            disk.mount_point,
+            disk.used_human(),
+            disk.total_human(),
+            disk.usage()
+        );
+    }
+
+    //网络接口
+    for net in info.networks() {
+        println!("网络 {}: ↓{} ↑{}",
+            net.name,
+            net.received_human(),
+            net.transmitted_human()
+        );
+    }
+}
+```
+
+**便捷函数：**
+```rust
+mod sysinfo;
+
+fn main() {
+    //快速获取单项信息（无需创建完整实例）
+    println!("CPU 核心数: {}", sysinfo::cpu_count());
+    println!("总内存: {}", sysinfo::humanize_bytes(sysinfo::memory_total()));
+    println!("主机名: {}", sysinfo::hostname());
+    println!("操作系统: {}", sysinfo::os_name());
+    println!("运行时间: {}秒", sysinfo::uptime());
+}
+```
+
+**刷新数据：**
+```rust
+mod sysinfo;
+
+fn main() {
+    let mut info = sysinfo::SystemInfo::new();
+
+    loop {
+        //刷新特定信息
+        info.refresh_cpu();
+        info.refresh_memory();
+
+        println!("CPU: {:.1}%, 内存: {:.1}%", info.cpu_usage(), info.memory_usage());
+
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+}
+```
+
+**支持的方法：**
+- CPU：`cpu_count()`, `cpu_physical_count()`, `cpu_usage()`, `cpu_usage_per_core()`, `cpu_brand()`, `cpu_frequency()`, `cpu_info()`
+- 内存：`memory_total()`, `memory_used()`, `memory_available()`, `memory_usage()`, `swap_total()`, `swap_used()`, `memory_info()`
+- 磁盘：`disks()`, `disk_usage()`, `disk_count()`
+- 网络：`networks()`, `network()`, `network_count()`
+- 系统：`os_name()`, `os_version()`, `kernel_version()`, `hostname()`, `uptime()`, `uptime_human()`, `arch()`, `system_info()`
+- 刷新：`refresh()`, `refresh_cpu()`, `refresh_memory()`, `refresh_disks()`, `refresh_networks()`
+- 工具：`humanize_bytes()`, `humanize_duration()`
