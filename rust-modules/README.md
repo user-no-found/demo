@@ -13,7 +13,8 @@
 | `udp/` | UDP 通信模块（单播+广播） | 无（纯标准库） |
 | `http/` | HTTP 通信模块（客户端+服务端） | [ureq](https://crates.io/crates/ureq) + [tiny_http](https://crates.io/crates/tiny_http) |
 | `websocket/` | WebSocket 双向通信 | [tungstenite](https://crates.io/crates/tungstenite) |
-| `json_config/` | JSON 配置文件读写 | [serde_json](https://crates.io/crates/serde_json) |
+| `json_config.rs` | JSON 配置文件读写 | [serde_json](https://crates.io/crates/serde_json) |
+| `toml_config.rs` | TOML 配置文件读写 | [toml](https://crates.io/crates/toml) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -354,9 +355,9 @@ fn main() {
 - 服务端：`bind()`, `run()`, `run_threaded()`
 - 消息类型：`Text`, `Binary`, `Ping`, `Pong`, `Close`
 
-### json_config/ （JSON 配置模块）
+### json_config.rs （JSON 配置模块）
 
-复制整个 `json_config/` 目录到项目 `src/` 目录。
+复制 `json_config.rs` 文件到项目 `src/` 目录。
 
 **Cargo.toml 依赖：**
 ```toml
@@ -406,3 +407,58 @@ fn main() {
 - 读取：`load()`, `load_as::<T>()`, `from_str()`
 - 保存：`save()`, `save_pretty()`
 - 操作：`get()`, `get_str()`, `get_i64()`, `set()`, `remove()`
+
+### toml_config.rs （TOML 配置模块）
+
+复制 `toml_config.rs` 文件到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+```
+
+**读取配置示例：**
+```rust
+mod toml_config;
+
+#[derive(serde::Deserialize)]
+struct Config {
+    name: String,
+    server: ServerConfig,
+}
+
+#[derive(serde::Deserialize)]
+struct ServerConfig {
+    port: u16,
+}
+
+fn main() {
+    //读取为结构体
+    let config: Config = toml_config::load_as("config.toml").unwrap();
+    println!("端口: {}", config.server.port);
+
+    //读取为动态值
+    let config = toml_config::load("config.toml").unwrap();
+    let name = config.get_str("name").unwrap_or("default");
+}
+```
+
+**保存配置示例：**
+```rust
+mod toml_config;
+
+#[derive(serde::Serialize)]
+struct Config { name: String, port: u16 }
+
+fn main() {
+    let config = Config { name: "app".to_string(), port: 8080 };
+    toml_config::save("config.toml", &config).unwrap();
+}
+```
+
+**支持的方法：**
+- 读取：`load()`, `load_as::<T>()`, `from_str()`
+- 保存：`save()`
+- 操作：`get()`, `get_str()`, `get_i64()`, `get_bool()`
