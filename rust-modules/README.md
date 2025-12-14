@@ -10,6 +10,7 @@
 | `cmd_config.rs` | 命令行参数配置 | [clap](https://crates.io/crates/clap) (需 derive feature) |
 | `log.rs` | 日志配置（终端+文件） | [simplelog](https://crates.io/crates/simplelog) + [log](https://crates.io/crates/log) |
 | `tcp/` | TCP 通信模块（客户端+服务端） | 无（纯标准库） |
+| `udp/` | UDP 通信模块（单播+广播） | 无（纯标准库） |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -154,3 +155,67 @@ pub const RECONNECT_MAX_MS: u64 = 60000;
 - `send_image()` - 图片传输
 - `send_video_frame()` - 视频帧
 - `send_file_chunked()` - 大文件分块传输
+
+### udp/ （UDP 通信模块）
+
+复制整个 `udp/` 目录到项目 `src/` 目录。
+
+**目录结构：**
+```
+udp/
+├── mod.rs       # 模块入口
+├── config.rs    # 配置项（端口、缓冲区等）
+├── client.rs    # 客户端
+└── server.rs    # 服务端
+```
+
+**服务端示例：**
+```rust
+mod udp;
+
+fn main() {
+    let server = udp::UdpServer::bind(8081).unwrap();
+
+    server.run(|data, addr, srv| {
+        println!("[{}] 收到: {}", addr, String::from_utf8_lossy(&data));
+        //回复客户端
+        srv.send_string_to(&addr, "收到").unwrap();
+        true //继续监听
+    });
+}
+```
+
+**客户端示例：**
+```rust
+mod udp;
+
+fn main() {
+    //单播发送
+    let client = udp::UdpClient::new().unwrap();
+    client.send_string_to("127.0.0.1", 8081, "你好！").unwrap();
+
+    //广播发送（需启用广播）
+    let bc = udp::UdpClient::new_broadcast().unwrap();
+    bc.broadcast_string(8081, "广播消息").unwrap();
+
+    //伪连接模式（设置默认目标后简化发送）
+    let client = udp::UdpClient::new().unwrap();
+    client.connect("127.0.0.1", 8081).unwrap();
+    client.send_string_connected("简化发送").unwrap();
+}
+```
+
+**配置修改（udp/config.rs）：**
+```rust
+//修改默认端口
+pub const SERVER_DEFAULT_PORT: u16 = 9000;
+
+//修改缓冲区大小
+pub const RECV_BUFFER_SIZE: usize = 4096;
+```
+
+**支持的方法：**
+- `send_to()` / `send_string_to()` - 单播发送
+- `broadcast()` / `broadcast_string()` - 广播发送
+- `recv()` / `recv_string()` - 接收数据
+- `connect()` + `send_connected()` - 伪连接模式
