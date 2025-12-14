@@ -11,6 +11,7 @@
 | `log.rs` | 日志配置（终端+文件） | [simplelog](https://crates.io/crates/simplelog) + [log](https://crates.io/crates/log) |
 | `tcp/` | TCP 通信模块（客户端+服务端） | 无（纯标准库） |
 | `udp/` | UDP 通信模块（单播+广播） | 无（纯标准库） |
+| `http/` | HTTP 通信模块（客户端+服务端） | [ureq](https://crates.io/crates/ureq) + [tiny_http](https://crates.io/crates/tiny_http) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -219,3 +220,72 @@ pub const RECV_BUFFER_SIZE: usize = 4096;
 - `broadcast()` / `broadcast_string()` - 广播发送
 - `recv()` / `recv_string()` - 接收数据
 - `connect()` + `send_connected()` - 伪连接模式
+
+### http/ （HTTP 通信模块）
+
+复制整个 `http/` 目录到项目 `src/` 目录。
+
+**目录结构：**
+```
+http/
+├── mod.rs       # 模块入口
+├── config.rs    # 配置项（超时、端口等）
+├── client.rs    # HTTP 客户端
+└── server.rs    # HTTP 服务端
+```
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+ureq = { version = "2", features = ["json"] }
+tiny_http = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+```
+
+**客户端示例：**
+```rust
+mod http;
+
+fn main() {
+    //简单 GET 请求
+    let resp = http::client::get("https://httpbin.org/get").unwrap();
+    println!("状态码: {}", resp.status);
+    println!("响应: {}", resp.text());
+
+    //带 Header 的请求
+    let client = http::HttpClient::new()
+        .with_header("X-Custom", "value")
+        .with_bearer_token("your-token");
+    let resp = client.get("https://api.example.com/data").unwrap();
+
+    //POST JSON
+    let data = serde_json::json!({"name": "test"});
+    let resp = http::client::post_json("https://httpbin.org/post", &data).unwrap();
+}
+```
+
+**服务端示例：**
+```rust
+mod http;
+
+fn main() {
+    http::HttpServer::bind(8000)
+        .get("/", |req| {
+            req.respond_text(200, "Hello World!");
+        })
+        .get("/api/status", |req| {
+            req.respond_json(200, &serde_json::json!({"status": "ok"}));
+        })
+        .post("/api/echo", |req| {
+            println!("收到: {}", req.body);
+            req.respond_text(200, &req.body);
+        })
+        .run();
+}
+```
+
+**支持的方法：**
+- 客户端：`get()`, `post_json()`, `post_form()`, `put_json()`, `delete()`
+- 服务端：`.get()`, `.post()`, `.put()`, `.delete()` 路由注册
+- 响应：`respond_text()`, `respond_json()`, `respond_html()`
