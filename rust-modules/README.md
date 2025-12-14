@@ -12,6 +12,7 @@
 | `tcp/` | TCP 通信模块（客户端+服务端） | 无（纯标准库） |
 | `udp/` | UDP 通信模块（单播+广播） | 无（纯标准库） |
 | `http/` | HTTP 通信模块（客户端+服务端） | [ureq](https://crates.io/crates/ureq) + [tiny_http](https://crates.io/crates/tiny_http) |
+| `websocket/` | WebSocket 双向通信 | [tungstenite](https://crates.io/crates/tungstenite) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -289,3 +290,65 @@ fn main() {
 - 客户端：`get()`, `post_json()`, `post_form()`, `put_json()`, `delete()`
 - 服务端：`.get()`, `.post()`, `.put()`, `.delete()` 路由注册
 - 响应：`respond_text()`, `respond_json()`, `respond_html()`
+
+### websocket/ （WebSocket 通信模块）
+
+复制整个 `websocket/` 目录到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+tungstenite = "0.21"
+```
+
+**客户端示例：**
+```rust
+mod websocket;
+
+fn main() {
+    let mut client = websocket::WsClient::connect("ws://127.0.0.1:9001").unwrap();
+
+    //发送消息
+    client.send_text("你好！").unwrap();
+
+    //接收消息
+    loop {
+        match client.recv() {
+            Ok(websocket::WsMessage::Text(s)) => println!("收到: {}", s),
+            Ok(websocket::WsMessage::Close) => break,
+            Err(_) => break,
+            _ => {}
+        }
+    }
+}
+```
+
+**服务端示例：**
+```rust
+mod websocket;
+
+fn main() {
+    let server = websocket::WsServer::bind(9001).unwrap();
+
+    //多线程处理连接
+    server.run_threaded(|mut conn| {
+        println!("客户端连接: {}", conn.addr);
+
+        loop {
+            match conn.recv() {
+                Ok(websocket::WsMessage::Text(s)) => {
+                    println!("收到: {}", s);
+                    conn.send_text(&format!("回复: {}", s)).unwrap();
+                }
+                Ok(websocket::WsMessage::Close) | Err(_) => break,
+                _ => {}
+            }
+        }
+    });
+}
+```
+
+**支持的方法：**
+- 客户端：`connect()`, `send_text()`, `send_binary()`, `recv()`
+- 服务端：`bind()`, `run()`, `run_threaded()`
+- 消息类型：`Text`, `Binary`, `Ping`, `Pong`, `Close`
