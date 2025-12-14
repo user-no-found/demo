@@ -19,6 +19,7 @@
 | `file_watcher.rs` | 文件监控、热重载 | [notify](https://crates.io/crates/notify) |
 | `progress.rs` | 进度条、Spinner 动画 | [indicatif](https://crates.io/crates/indicatif) |
 | `serial.rs` | 串口通信 | [serial2](https://crates.io/crates/serial2) |
+| `env_config.rs` | 环境变量/.env文件 | [dotenvy](https://crates.io/crates/dotenvy) |
 
 > 注：使用前请到 crates.io 查询依赖的最新版本
 
@@ -843,3 +844,78 @@ fn main() {
 - 控制信号：`set_dtr()`, `set_rts()`, `read_cts()`, `read_dsr()`
 - Builder：`port()`, `baud_rate()`, `data_bits()`, `stop_bits()`, `parity()`, `timeout()`
 - 常用波特率：`baud_rates::B9600`, `B115200`, `B921600` 等
+
+### env_config.rs （环境变量模块）
+
+复制 `env_config.rs` 文件到项目 `src/` 目录。
+
+**Cargo.toml 依赖：**
+```toml
+[dependencies]
+dotenvy = "0.15"
+```
+
+**基础使用示例：**
+```rust
+mod env_config;
+
+fn main() {
+    //加载 .env 文件（可选，文件不存在不报错）
+    env_config::load_optional();
+
+    //读取字符串
+    let db_url = env_config::get("DATABASE_URL");
+    let host = env_config::get_or("HOST", "localhost");
+
+    //读取整数
+    let port = env_config::get_int_or("PORT", 8080);
+
+    //读取布尔值（支持 true/false/1/0/yes/no）
+    let debug = env_config::get_bool_or("DEBUG", false);
+
+    //必需变量（不存在则返回错误）
+    let secret = env_config::require("SECRET_KEY").unwrap();
+}
+```
+
+**使用 EnvReader（带前缀）：**
+```rust
+mod env_config;
+
+fn main() {
+    //创建带前缀的读取器
+    let env = env_config::EnvReader::new()
+        .prefix("APP_")       //所有变量加 APP_ 前缀
+        .load_dotenv();       //加载 .env 文件
+
+    //读取 APP_NAME
+    let name = env.get_or("NAME", "myapp");
+
+    //读取 APP_PORT
+    let port = env.get_int_or("PORT", 3000);
+
+    //读取 APP_DEBUG
+    let debug = env.get_bool_or("DEBUG", false);
+}
+```
+
+**.env 文件示例：**
+```env
+# 数据库配置
+DATABASE_URL=postgres://localhost/mydb
+
+# 应用配置
+APP_NAME=myapp
+APP_PORT=8080
+APP_DEBUG=true
+
+# 密钥
+SECRET_KEY=your-secret-key
+```
+
+**支持的方法：**
+- 加载：`load()`, `load_from()`, `load_optional()`, `load_from_optional()`
+- 读取：`get()`, `require()`, `get_or()`, `exists()`
+- 类型转换：`get_int()`, `get_bool()`, `get_float()` 及其 `_or` 变体
+- 批量：`get_all()`, `get_all_with_prefix()`
+- EnvReader：`prefix()`, `load_dotenv()` + 所有读取方法
